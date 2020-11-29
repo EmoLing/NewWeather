@@ -1,0 +1,7 @@
+services:
+  weather:
+    build:
+      context: E:\VMMACHINE\Common\Avito_HomeWork1_Weather-master
+      dockerfile: weather/Dockerfile
+    image: weather
+version: '3.4'

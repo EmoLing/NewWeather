@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "pRJj6rhHMWSepOxOL03WuKm21ENd9lP9hOzv4ufhIS5sJAroIuwXqmOtPJNonFawvbkS2ofFeJwhY4SBsdutpw==",
+  "success": true,
+  "projectFilePath": "E:\\VMMACHINE\\Common\\Avito_HomeWork1_Weather-master\\weather\\weather28.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\temch\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.10.9\\microsoft.visualstudio.azure.containers.tools.targets.1.10.9.nupkg.sha512",
+    "C:\\Users\\temch\\.nuget\\packages\\newtonsoft.json\\12.0.3\\newtonsoft.json.12.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
