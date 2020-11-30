@@ -2,7 +2,7 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ActiveDebugProfile>weather</ActiveDebugProfile>
-    <_LastSelectedProfileId>E:\VMMACHINE\Common\Avito_HomeWork1_Weather-master\weather\Properties\PublishProfiles\registry.hub.docker.com_emoling.pubxml</_LastSelectedProfileId>
+    <_LastSelectedProfileId>E:\Учеба\Highload\Avito_HomeWork1_Weather-master\weather\Properties\PublishProfiles\registry.hub.docker.com_emoling.pubxml</_LastSelectedProfileId>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebuggerFlavor>ProjectDebugger</DebuggerFlavor>

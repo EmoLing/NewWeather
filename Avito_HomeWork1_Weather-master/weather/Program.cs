@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Linq;
+using Microsoft.VisualBasic;
+using StackExchange.Redis;
 
 namespace weather
 {
@@ -18,7 +20,7 @@ namespace weather
             //info.UseShellExecute = false;
             //Process.Start(info);
 
-            string url = @"http://+"; 
+            string url = @"http://+";
             string port = "80";
             string prefix = String.Format("{0}:{1}/", url, port);
 
@@ -56,7 +58,7 @@ namespace weather
                 //Возвращаем ответ
                 using (Stream stream = response.OutputStream)
                 {
-                    byte[] buffer = Encoding.UTF8.GetBytes(ParserString(request.Url.ToString()).ToString());
+                    byte[] buffer = Encoding.UTF8.GetBytes(ParserString(request.Url.ToString(), request, requestBody));
                     stream.Write(buffer, 0, buffer.Length);
                 }
             }
@@ -66,71 +68,118 @@ namespace weather
         /// Парсер запроса
         /// </summary>
         /// <param name="url"></param>
-        static JObject ParserString(string url)
+        static string ParserString(string url, HttpListenerRequest request, string requestBody)
         {
             char[] znaki = { '/', '?', '=', '&' };
-            string[] mass_url = url.Split(znaki);
-            List<string> list_mass_url = new List<string>();
-            for (int i = 0; i < mass_url.Length; i++)
-            {
-                list_mass_url.Add(mass_url[i]);
-            }
-            if (list_mass_url.Contains("current") && list_mass_url.Contains("city") && !list_mass_url.Contains("dt"))
-            {
-                int IndexCity = list_mass_url.IndexOf("city") + 1;
-                string city = list_mass_url[IndexCity];
-                return CurrentWeather(city);
-            }
-            else if (list_mass_url.Contains("forecast") && list_mass_url.Contains("city") && list_mass_url.Contains("dt"))
-            {
-                int IndexCity = list_mass_url.IndexOf("city") + 1;
-                string city = list_mass_url[IndexCity];
 
-                int IndexDt = list_mass_url.IndexOf("dt") + 1;
-                string Dt = list_mass_url[IndexDt];
-                // if (Dt == "current" || "minutely" || "hourly" || "daily" || "alerts")
-                switch (Dt)
+            if (request.HttpMethod == "GET")
+            {
+                string[] mass_url = url.Split(znaki);
+                List<string> list_mass_url = new List<string>();
+                for (int i = 0; i < mass_url.Length; i++)
                 {
-                    case "current": return ForecastWeather(city, Dt); 
-                    case "minutely": return ForecastWeather(city, Dt); 
-                    case "hourly": return ForecastWeather(city, Dt); 
-                    case "daily": return ForecastWeather(city, Dt); 
-                    case "alerts": return ForecastWeather(city, Dt); 
-                    default:
-                        {
-                            JArray array = new JArray();
+                    list_mass_url.Add(mass_url[i]);
+                }
 
-                            JObject mainTree = new JObject();
+                if (list_mass_url.Contains("current") && list_mass_url.Contains("city") &&
+                    !list_mass_url.Contains("dt"))
+                {
 
-                            mainTree["ok"] = false;
+                    int IndexCity = list_mass_url.IndexOf("city") + 1;
+                    string city = list_mass_url[IndexCity];
+                    return GetFromDBRedis(city, DateTime.Now, "current");
+                    // return CurrentWeather(city);
+                }
+                else if (list_mass_url.Contains("forecast") && list_mass_url.Contains("city") &&
+                         list_mass_url.Contains("dt"))
+                {
+                    int IndexCity = list_mass_url.IndexOf("city") + 1;
+                    string city = list_mass_url[IndexCity];
 
-                            JObject o = new JObject();
+                    int IndexDt = list_mass_url.IndexOf("dt") + 1;
+                    string Dt = list_mass_url[IndexDt];
+                    // if (Dt == "current" || "minutely" || "hourly" || "daily" || "alerts")
+                    switch (Dt)
+                    {
+                        case "current": return GetFromDBRedis(city, DateTime.Now, "forecast", Dt);
+                        case "minutely": return GetFromDBRedis(city, DateTime.Now, "forecast", Dt);
+                        case "hourly": return GetFromDBRedis(city, DateTime.Now, "forecast", Dt);
+                        case "daily": return GetFromDBRedis(city, DateTime.Now, "forecast", Dt);
+                        case "alerts": return GetFromDBRedis(city, DateTime.Now, "forecast", Dt);
+                        default:
+                            {
+                                JArray array = new JArray();
 
-                            o["error"] = "error";
-                            o["dt"] = "current | minutely | hourly |  daily | alerts";
-                            array.Add(o);
+                                JObject mainTree = new JObject();
 
-                            mainTree["response"] = array;
-                            return mainTree;
-                        }
+                                mainTree["ok"] = false;
+
+                                JObject o = new JObject();
+
+                                o["error"] = "error";
+                                o["dt"] = "current | minutely | hourly |  daily | alerts";
+                                array.Add(o);
+
+                                mainTree["response"] = array;
+                                return mainTree.ToString();
+                            }
+                    }
+                }
+                else
+                {
+                    JArray array = new JArray();
+
+                    JObject mainTree = new JObject();
+
+                    mainTree["ok"] = false;
+
+                    JObject o = new JObject();
+
+                    o["error"] = "error";
+                    array.Add(o);
+
+                    mainTree["response"] = array;
+                    return mainTree.ToString();
                 }
             }
-            else
+            else if (request.HttpMethod == "POST" || request.HttpMethod == "PUT")
             {
-                JArray array = new JArray();
+                string[] mass_body = requestBody.Split(znaki);
+                List<string> list_mass_body = new List<string>();
+                for (int i = 0; i < mass_body.Length; i++)
+                {
+                    list_mass_body.Add(mass_body[i]);
+                }
+                int IndexCity = list_mass_body.IndexOf("city") + 1;
+                string city = list_mass_body[IndexCity];
 
-                JObject mainTree = new JObject();
+                if (list_mass_body.Contains("current") && list_mass_body.Contains("city") &&
+                    !list_mass_body.Contains("dt"))
+                {
+                    SetInDBRedis(city, DateTime.Now, "current");
+                    return $"{request.HttpMethod} выполнен";
+                }
 
-                mainTree["ok"] = false;
+                if (list_mass_body.Contains("forecast") && list_mass_body.Contains("city") &&
+                    list_mass_body.Contains("dt"))
+                {
+                    int IndexDt = list_mass_body.IndexOf("dt") + 1;
+                    string Dt = list_mass_body[IndexDt];
 
-                JObject o = new JObject();
-
-                o["error"] = "error";
-                array.Add(o);
-
-                mainTree["response"] = array;
-                return mainTree;
+                    switch (Dt)
+                    {
+                        case "current": SetInDBRedis(city, DateTime.Now, "forecast", Dt); return $"{request.HttpMethod} выполнен";
+                        case "minutely": SetInDBRedis(city, DateTime.Now, "forecast", Dt); return $"{request.HttpMethod} выполнен";
+                        case "hourly": SetInDBRedis(city, DateTime.Now, "forecast", Dt); return $"{request.HttpMethod} выполнен";
+                        case "daily": SetInDBRedis(city, DateTime.Now, "forecast", Dt); return $"{request.HttpMethod} выполнен";
+                        case "alerts": SetInDBRedis(city, DateTime.Now, "forecast", Dt); return $"{request.HttpMethod} выполнен";
+                        default:
+                            return $"{request.HttpMethod} НЕ выполнен, неизвестные аргументы";
+                    }
+                }
+                return $"{request.HttpMethod} НЕ выполнен, неизвестные аргументы";
             }
+            else return $"{request.HttpMethod} НЕ выполнен, неизвестные аргументы";
         }
 
         /// <summary>
@@ -156,7 +205,7 @@ namespace weather
                 // Read the content.
                 string responseFromServer = reader.ReadToEnd();
                 // Display the content.
-             //   Console.WriteLine(responseFromServer);
+                //   Console.WriteLine(responseFromServer);
 
 
                 string temp = JObject.Parse(responseFromServer)["main"]["temp"].ToString();
@@ -180,6 +229,8 @@ namespace weather
                 dataStream.Close();
                 response.Close();
 
+                // SetInDBRedis(city, mainTree);
+
                 return mainTree;
             }
             catch (Exception)
@@ -202,7 +253,7 @@ namespace weather
             // Get the response.
             HttpWebResponse response = (HttpWebResponse)myReq_city.GetResponse();
             // Display the status.
-          //  Console.WriteLine(response.StatusDescription);
+            //  Console.WriteLine(response.StatusDescription);
             // Get the stream containing content returned by the server.
             Stream dataStream = response.GetResponseStream();
             // Open the stream using a StreamReader for easy access.
@@ -231,7 +282,7 @@ namespace weather
             // Read the content.
             string responseFromServer_weather = reader_weather.ReadToEnd();
             // Display the content.
-           // Console.WriteLine(responseFromServer_weather);
+            // Console.WriteLine(responseFromServer_weather);
 
             JToken[] temp;
             if (Dt == "hourly")
@@ -267,5 +318,170 @@ namespace weather
             return mainTree;
         }
 
+
+        /// <summary>
+        /// Запись в Редис
+        /// </summary>
+        /// <param name="city">Город</param>
+        /// <param name="date">Дата</param>
+        /// <param name="type">Тип: текущий или на день</param>
+        /// <param name="jObject">сам запрос </param>
+        private static void SetInDBRedis(string city, DateTime date, string type)
+        {
+            ConnectionMultiplexer redis;
+            redis = ConnectionMultiplexer.Connect(GetPath());
+            var db = redis.GetDatabase();
+
+            db.StringSet($"{type}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}", $"{CurrentWeather(city)}");
+
+            redis.Close();
+        }
+
+        private static void SetInDBRedis(string city, DateTime date, string type, string Dt)
+        {
+            ConnectionMultiplexer redis;
+            redis = ConnectionMultiplexer.Connect(GetPath());
+            var db = redis.GetDatabase();
+
+            db.StringSet($"{type}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}", $"{CurrentWeather(city)}");
+            string forecast = string.Empty;
+            if (Dt == "current")
+            {
+
+                db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}",
+                    $"{ForecastWeather(city, Dt)}");
+            }
+            else if (Dt == "minutely")
+            {
+
+                db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}",
+                    $"{ForecastWeather(city, Dt)}");
+            }
+            else if (Dt == "hourly")
+            {
+
+                db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}",
+                    $"{ForecastWeather(city, Dt)}");
+            }
+            else if (Dt == "daily")
+            {
+                db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}",
+                        $"{ForecastWeather(city, Dt)}");
+            }
+            else if (Dt == "alerts")
+            {
+                db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}",
+                        $"{ForecastWeather(city, Dt)}");
+            }
+            redis.Close();
+        }
+
+        /// <summary>
+        /// Получение из сервера погоды current
+        /// </summary>
+        /// <param name="city"></param>
+        /// <param name="date"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        private static string GetFromDBRedis(string city, DateTime date, string type)
+        {
+
+            ConnectionMultiplexer redis;
+            redis = ConnectionMultiplexer.Connect(GetPath());
+            var db = redis.GetDatabase();
+
+
+            if ((db.StringGet($"{type}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}").ToString() ?? "Empty...") == "Empty...")
+            {
+                db.StringSet($"{type}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}", $"{CurrentWeather(city)}");
+            }
+
+            string current = db.StringGet($"{type}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}").ToString();
+            redis.Close();
+            return current;
+        }
+
+        /// <summary>
+        /// Получение из сервера погоды Forecast
+        /// </summary>
+        /// <param name="city"></param>
+        /// <param name="date"></param>
+        /// <param name="type"></param>
+        /// <param name="Dt"></param>
+        /// <returns></returns>
+        private static string GetFromDBRedis(string city, DateTime date, string type, string Dt)
+        {
+
+            ConnectionMultiplexer redis;
+            redis = ConnectionMultiplexer.Connect(GetPath());
+            var db = redis.GetDatabase();
+            string forecast = string.Empty;
+            if (Dt == "current")
+            {
+                if ((db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}").ToString() ??
+                     "Empty...") == "Empty...")
+                {
+                    db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}",
+                        $"{ForecastWeather(city, Dt)}");
+                }
+                forecast = db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}").ToString();
+            }
+            else if (Dt == "minutely")
+            {
+                if ((db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}").ToString() ??
+                     "Empty...") == "Empty...")
+                {
+                    db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}",
+                        $"{ForecastWeather(city, Dt)}");
+                }
+                forecast = db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm")}").ToString();
+            }
+            else if (Dt == "hourly")
+            {
+                if ((db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}").ToString() ??
+                     "Empty...") == "Empty...")
+                {
+                    db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}",
+                        $"{ForecastWeather(city, Dt)}");
+                }
+                forecast = db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}").ToString();
+            }
+            else if (Dt == "daily")
+            {
+                if ((db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}").ToString() ??
+                     "Empty...") == "Empty...")
+                {
+                    db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}",
+                        $"{ForecastWeather(city, Dt)}");
+                }
+                forecast = db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H")}").ToString();
+            }
+            else if (Dt == "alerts")
+            {
+                if ((db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}").ToString() ??
+                     "Empty...") == "Empty...")
+                {
+                    db.StringSet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}",
+                        $"{ForecastWeather(city, Dt)}");
+                }
+                forecast = db.StringGet($"{type}_{Dt}_{city}_{date.ToString("dd-MM-yyyy_H:mm:ss")}").ToString();
+            }
+            redis.Close();
+            return forecast;
+        }
+
+        /// <summary>
+        /// Путь к конфигу
+        /// </summary>
+        /// <returns></returns>
+        private static string GetPath()
+        {
+            string myIp = string.Empty;
+            using (StreamReader reader = new StreamReader("config_redis.txt"))
+            {
+                myIp = reader.ReadToEnd();
+            }
+            return myIp;
+        }
     }
 }
