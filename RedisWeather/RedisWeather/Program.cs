@@ -473,10 +473,34 @@ namespace RedisWeather
         /// Путь к конфигу
         /// </summary>
         /// <returns></returns>
-        private static string GetPath()
+        private static ConfigurationOptions GetPath()
         {
-            string myIp = "localhost";
-            return myIp;
+            ConfigurationOptions config = new ConfigurationOptions
+            {
+                EndPoints =
+                {
+                    {
+                        "localhost", 6379
+                    },
+                    {
+                        "localhost", 6380
+                    },
+                    {
+                        "localhost", 6381
+                    },
+                    {
+                        "localhost", 6382
+                    },
+                    {
+                        "localhost", 6383
+                    },
+                    {
+                        "localhost", 6384
+                    }
+                },
+                KeepAlive = 90
+            };
+        return config;
         }
     }
 }
